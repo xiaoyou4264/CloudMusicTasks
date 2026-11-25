@@ -1,9 +1,6 @@
-# 网易云音乐自动任务
+# CloudMusicTasks · 网易云音乐自动任务
 
-<p>
-  <a href="https://music.163.com/#/user/home?id=347837981"><img alt="网易云音乐关注数" src="https://img.shields.io/badge/dynamic/json?color=e60026&label=%E7%BD%91%E6%98%93%E4%BA%91%E9%9F%B3%E4%B9%90&query=%24.profile.followeds&url=http%3A%2F%2Fmusic.163.com%2Fapi%2Fv1%2Fuser%2Fdetail%2F347837981"></a>
-  <a href="http://www.coolapk.com/u/3189084"><img alt="酷安关注数" src="https://img.shields.io/badge/dynamic/json?color=0eb066&label=%E9%85%B7%E5%AE%89&query=%24.data.totalSubs&url=https%3A%2F%2Fapi.spencerwoo.com%2Fsubstats%2F%3Fsource%3Dcoolapk%26queryKey%3D3189084"></a>
-</p>
+本仓库维护网易云音乐签到、云贝任务和推送功能，包含新版云贝接口适配。可从源码通过 [Docker Compose](#从本仓库构建并运行-docker-compose) 部署，或直接用 Python [本地运行](#三本地运行)。
 
 ## 功能
 
@@ -18,9 +15,7 @@
 9. 支持多账号
 10. 支持[腾讯云函数](#一部署到腾讯云函数) & [青龙面板](#二部署到青龙面板) & [本地运行](#三本地运行) & [docker 部署](#四使用docker部署)
 
-> 开发不易，如果你觉得本项目对你有用，可以点个 star，也可以到底部给个[赞赏](#赞赏)
-
-### 当前 Docker 部署的功能
+### Docker 配置示例
 
 | 状态 | 功能 |
 | --- | --- |
@@ -29,13 +24,15 @@
 | 账号与推送 | 单账号，使用 Server 酱推送到微信 |
 | 执行时间 | 每天北京时间 08:30，容器启动和重启时只加载计划 |
 
+表中的账号、推送和任务开关是一套部署示例。新部署从 [`config.example.json`](./config.example.json) 复制配置，再按需选择功能。
+
 云贝子任务以网易云对该账号返回的任务列表为准。已经开启的访问商城、发布动态或发布 Mlog，只有在接口返回对应任务且任务可执行时才会运行。网易云返回的发布图文笔记、设置双人关系、完善个人资料目前尚未接入。
 
 ## 注意事项
 
-- 默认会在网易云音乐中关注作者，如果不想关注，可以在配置文件里[修改](#关注作者)
-- 提 issue 之前看看是否有重复的 issue。
-- 不要直接在 GitHub 上修改配置文件。已经修改了的，尽快覆盖，并修改密码。
+- 示例配置中的 `follow` 默认开启，可在本机[关闭关注作者](#关注作者)。
+- 反馈问题前，请先搜索[本仓库的 Issues](https://github.com/xiaoyou4264/CloudMusicTasks/issues)。
+- 在本机 `config.json` 中填写账号 Cookie、密码和推送密钥。提交代码时使用 `config.example.json` 展示配置结构，凭据留在本机。
 - 转载请注明出处，并保留原作者信息。
 - 禁止将代码用于商业用途，包括打包售卖，收费代挂等。
 - 为了账号安全考虑，请勿将账号密码交给他人代挂。
@@ -52,23 +49,23 @@
 
 在腾讯云[API 密钥管理](https://console.cloud.tencent.com/cam/capi)新建密钥，获取 SecretId 和 SecretKey
 
-![Fork](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/getsecret.png)
+![Fork](./public/img/getsecret.png)
 
-### fork 本项目
+### 准备 GitHub 仓库
 
-在 GitHub 上 fork [本项目](https://github.com/chen310/NeteaseCloudMusicTasks)
+在自己有管理权限的仓库设置 Secrets。也可以从 [xiaoyou4264/CloudMusicTasks](https://github.com/xiaoyou4264/CloudMusicTasks) 创建自己的 fork 后继续。
 
-![Fork](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/fork.png)
+![Fork](./public/img/fork.png)
 
 ### 创建 Secrets
 
-fork 之后，点击右上方 `settings`
+打开部署所用仓库的 `Settings`。
 
-![Settings](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/settings.png)
+![Settings](./public/img/settings.png)
 
 在页面点击 `Secrets`，点击 `Actions`，然后点击 `New repository secret` 创建新的 secret。
 
-![NewSecrets](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/newsecrets.png)
+![NewSecrets](./public/img/newsecrets.png)
 
 | Name          | Value                     | 是否必填 |
 | :------------ | :------------------------ | :------- |
@@ -80,15 +77,15 @@ fork 之后，点击右上方 `settings`
 
 先填写先前获取的 SECRET_ID
 
-![SECRET_ID](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/secretid.png)
+![SECRET_ID](./public/img/secretid.png)
 
 同理，填写先前获取的 SECRET_KEY
 
-![SECRET_KEY](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/secretkey.png)
+![SECRET_KEY](./public/img/secretkey.png)
 
 CRON 默认为 `0 35 8 * * * *` 表示每天 8 点 35 分触发。如需更改，则如下图所示创建此 secret，。比如：`0 20 12 * * * *` 表示每天 12 点 20 分触发，`0 0 12,16 * * * *` 表示每天 12 点和 16 点各触发一次。
 
-![Cron](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/cron.png)
+![Cron](./public/img/cron.png)
 
 FUNCTION_NAME 为函数名，不填写默认为 `NeteaseCloudMusicTasks`。如需更改，则创建此 secret，并填写自定义的函数名，命名规则：只能包含字母、数字、下划线、连字符，以字母开头，以数字或字母结尾，2~60 个字符。
 
@@ -96,71 +93,71 @@ REGION 默认为 `ap-guangzhou` ，可选的地域详见[地域列表](https://c
 
 添加完毕可以看到
 
-![Cron](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/secretlist.png)
+![Cron](./public/img/secretlist.png)
 
 ### 部署
 
-击项目上方的 `Actions`
+打开部署所用仓库的 `Actions`。
 
-![Actions](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/actions.png)
+![Actions](./public/img/actions.png)
 
 点击 `All workflows` 下方的 `deploy`（移动端要先点击 `Select workflow`），再点击右侧 `Run workflow`，在弹出的页面再次点击 `Run workflow`，将会运行新的 workflow
 
-![RunWorkflow](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/runworkflow.png)
+![RunWorkflow](./public/img/runworkflow.png)
 
 运行后如果不显示，刷新一下页面即可看到正在运行的 workflow。
 
-![Workflow](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/workflow.png)
+![Workflow](./public/img/workflow.png)
 
 等到标志变成 ✅，表示已经部署成功。
 
-![Success](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/success.png)
+![Success](./public/img/success.png)
 
 如果发现标志变成 ❌，则表示部署失败。
 
-![Failure](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/failure.png)
+![Failure](./public/img/failure.png)
 
 可以点进这个 workflow 查看失败原因。
 
-![Failue](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/failure2.png)
+![Failue](./public/img/failure2.png)
 
 ### 添加依赖
 
 下载[依赖文件](https://chen10.lanzouo.com/igHXzxf8wjc) ，也可以自己用 pip 下载依赖，然后打包。然后在[高级能力](https://console.cloud.tencent.com/scf/layer)新建`层`
 
-![Layer](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/layer.png)
+![Layer](./public/img/layer.png)
 
 `层名称`可以自己任意填写，然后上传刚刚下载的压缩包，点击`添加运行环境`，选择 `Python3.6`。
 
-![Dependence](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/dependence.png)
+![Dependence](./public/img/dependence.png)
 
 在[函数服务](https://console.cloud.tencent.com/scf/list)点进刚刚创建的函数
 
-![Function](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/function.png)
+![Function](./public/img/function.png)
 
 点击上方的`层管理`，点击`绑定`
 
-![Bind](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/bind1.png)
+![Bind](./public/img/bind1.png)
 
 选择刚刚创建的层。
 
-![Bind](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/bind2.png)
+![Bind](./public/img/bind2.png)
 
 ### 修改配置
 
 在[函数服务](https://console.cloud.tencent.com/scf/list)点进刚刚创建的函数
 
-![Function](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/function.png)
+![Function](./public/img/function.png)
 
 如果在函数服务里找不到刚刚部署的函数，先到 GitHub Actions 中确认是否部署成功。如果部署成功，则确认页面左上角的地域选择是否正确，默认地域应为广州。如果在 Secrets 中设置了 REGION，则根据自己设置的 REGION 选择相应的地域。
 
 在编辑器里点击 `config.json` 这个文件进行配置
 
-![Config](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/config.png)
+![Config](./public/img/config.png)
 
 可以看到文件中有红色波浪线的错误提示，可以忽略不管，也可以下拉到编辑器的右下角，点击 `JSON` 来更改语言模式，选择 `JSON with Comments`，这样就可以消除错误提示。
 
-![Style](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/style.png)
+![Style](./public/img/style.png)
 
 在 `config.json` 里进行如下的账号配置。运行之后如果发现有些任务没有完成，可能是因为没有开启，将任务对应的 `enable` 字段设置为 `true` 即可开启。
 
@@ -186,7 +183,7 @@ REGION 默认为 `ap-guangzhou` ，可选的地域详见[地域列表](https://c
 
 cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.com/)，然后按 <kbd>F12</kbd> 打开开发人员工具，再按 <kbd>F5</kbd> 刷新页面，最后按照以下步骤来获取 cookie，可以只复制 `MUSIC_U` 的那部分
 
-![Cookie](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/cookie.png)
+![Cookie](./public/img/cookie.png)
 
 #### 签到
 
@@ -660,15 +657,11 @@ cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.c
 
 修改完代码后，按 ctrl+s 保存代码，然后点击编辑器右上角的`部署`（每次修改完都要重新部署），左下角的`部署`也行。部署完成后点击部署旁边的测试按钮，观察结果，如果失败则检查修改代码。
 
-![Test](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/test.png)
+![Test](./public/img/test.png)
 
 ### 更新代码
 
-在 fork 后的 GitHub 项目页面点击 `Fetch upstream` - `Fetch and merge`
-
-![Update](https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/update.png)
-
-此时，更新后的代码会自动部署到腾讯云函数中，可以到 `Actions` 中查看部署进度。更新后，配置文件自动同步，无需再次填写，但注释会被删除。如果需要修改配置文件，可以参考 `config.example.json` 文件中的注释，对 `config.json` 文件进行修改。进入到云函数中时，如果提醒“检测到当前工作区函数和已部署函数不一致，重新加载已部署函数?”，点击`确认`即可。
+将此仓库的更新合入部署仓库后，在 `Actions` 查看部署进度。部署工作流监听 `main` 上的 Python、JSON、Shell 和部署工作流文件变更，其他情况可手动运行 `deploy`。工作流会尝试合并现有云函数配置。需要修改任务时，可参考 `config.example.json` 的注释编辑云函数里的 `config.json`。
 
 如果修改了 Secrets，需要手动部署才会生效，详见[部署](#部署)。
 
@@ -684,14 +677,17 @@ docker exec -it qinglong bash
 
 ### 拉取代码
 
+在青龙容器内把项目克隆到持久化目录。下面使用常见的 `/ql/data` 挂载目录，可按你的容器调整实际路径。
+
 ```shell
-ql repo https://github.com/chen310/NeteaseCloudMusicTasks.git "index.py" "" "py"
+git clone https://github.com/xiaoyou4264/CloudMusicTasks.git /ql/data/CloudMusicTasks
+cd /ql/data/CloudMusicTasks
 ```
 
 ### 生成配置文件
 
 ```shell
-task chen310_NeteaseCloudMusicTasks/ql_update.py
+cp -n config.example.json config.json
 ```
 
 ### 安装依赖
@@ -703,26 +699,16 @@ pip3 install requests json5 pycryptodomex
 
 ### 修改配置文件
 
-对配置文件 `config.json` 进行修改，修改方式可以参考[修改配置](#账号密码)
+按[账号和任务配置](#账号密码)编辑 `config.json`，然后在青龙新增定时任务，命令填写 `cd /ql/data/CloudMusicTasks && python3 index.py`。克隆到其他目录时，定时任务中的路径也要一起调整。
 
 ### 更新代码
 
-如果需要更新代码则同样先进入容器
+在容器内运行以下命令，更新代码并合并配置模板。
 
 ```shell
-docker exec -it qinglong bash
-```
-
-然后更新代码
-
-```shell
-ql repo https://github.com/chen310/NeteaseCloudMusicTasks.git "index.py" "" "py"
-```
-
-再更新配置文件
-
-```shell
-task chen310_NeteaseCloudMusicTasks/ql_update.py
+cd /ql/data/CloudMusicTasks
+git pull --ff-only
+python3 updateconfig.py config.example.json config.json config.json
 ```
 
 每次更新完代码后一定要更新配置文件，否则可能会出错
@@ -734,7 +720,7 @@ task chen310_NeteaseCloudMusicTasks/ql_update.py
 拉取代码
 
 ```shell
-git clone https://github.com/chen310/NeteaseCloudMusicTasks.git
+git clone https://github.com/xiaoyou4264/CloudMusicTasks.git
 ```
 
 ### 安装依赖
@@ -742,7 +728,7 @@ git clone https://github.com/chen310/NeteaseCloudMusicTasks.git
 切换到项目目录
 
 ```shell
-cd NeteaseCloudMusicTasks
+cd CloudMusicTasks
 ```
 
 然后安装依赖
@@ -787,7 +773,15 @@ python3 updateconfig.py config.example.json config.json config.json
 
 ### 从本仓库构建并运行 Docker Compose
 
-在全新检出中，把 `config.example.json` 复制为 `config.json`，填写网易云登录信息和需要的推送凭据，再按需开启任务。已有部署直接编辑本机配置。Compose 以只读方式挂载 `config.json`，该文件已排除在 Git 和镜像构建上下文之外。
+在终端运行以下命令，从本仓库克隆代码并生成本机配置。
+
+```bash
+git clone https://github.com/xiaoyou4264/CloudMusicTasks.git
+cd CloudMusicTasks
+cp -n config.example.json config.json
+```
+
+编辑 `config.json`，填写网易云登录信息和需要的推送凭据，再按需开启任务。已有部署可直接编辑本机配置。Compose 以只读方式挂载 `config.json`，该文件已排除在 Git 和镜像构建上下文之外。
 
 ```bash
 docker compose up -d --build
@@ -848,21 +842,13 @@ docker run -itd --restart=on-failure \
 
 详见[计费概述](https://cloud.tencent.com/document/product/583/17299)
 
-### 赞赏
-
-<p align="left">微信</p> <img width="300" height="300" src="https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/wechatpay.png" />
-
-<p align="left">支付宝</p> <img width="300" height="300" src="https://cdn.jsdelivr.net/gh/chen310/NeteaseCloudMusicTasks/public/img/alipay.png" />
-
-### star 数
-
-[![Stargazers over time](https://starchart.cc/chen310/NeteaseCloudMusicTasks.svg)](https://starchart.cc/chen310/NeteaseCloudMusicTasks)
-
 ### 声明
 
 - 本仓库中的脚本仅用于测试和学习目的，请勿用于商业或非法目的，否则后果自负
 - 转载请注明出处，并保留原作者信息。
 - 如果您认为该项目的脚本可能涉嫌侵犯您的权利，请及时通知，我们将在确认后及时删除
+
+本仓库基于 [Vonalien/CloudMusicTasks](https://github.com/Vonalien/CloudMusicTasks)，原始项目为 [chen310/NeteaseCloudMusicTasks](https://github.com/chen310/NeteaseCloudMusicTasks)。
 
 ### 灵感来源
 
