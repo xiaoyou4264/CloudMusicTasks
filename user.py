@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 import time
+from importlib import import_module
 import random
 import math
 import re
 from api import NetEase
 import os
 import requests
+
+
+YUNBEI_TASK_ALIASES = {'10795676': '166000', '6758460': '656007'}
 
 
 class User(object):
@@ -477,12 +481,23 @@ class User(object):
         count = 0
         resp = self.music.yunbei_task()
         tasks = user_setting['yunbei_task']
-        for t in resp['data']:
-            taskId = str(t['taskId'])
-            if t['userTaskId'] == 0 and taskId in tasks and tasks[taskId]['enable']:
-                exec('from task import {}'.format(tasks[taskId]['module']))
-                exec('{}.start(self, tasks[taskId])'.format(
-                    tasks[taskId]['module']))
+        if resp.get('code') != 200 or not isinstance(resp.get('data'), list):
+            self.taskInfo('任务列表获取失败', self.errMsg(resp))
+            self.finishTask()
+            return
+
+        task_rows = resp['data']
+        returned_ids = {str(row['taskId']) for row in task_rows}
+        superseded_ids = {old for new, old in YUNBEI_TASK_ALIASES.items() if new in returned_ids and new not in tasks}
+        for row in task_rows:
+            task_id = str(row['taskId'])
+            settings = tasks.get(task_id, tasks.get(YUNBEI_TASK_ALIASES.get(task_id)))
+            resumable = task_id == '6718451' and row.get('status') == 10
+            if task_id in superseded_ids or row.get('completed') or (row['userTaskId'] != 0 and not resumable):
+                continue
+            if settings and settings['enable']:
+                task_config = {**settings, 'taskId': task_id, 'subAction': row.get('subAction', '')}
+                import_module('task.' + settings['module']).start(self, task_config)
                 count += 1
 
         if count == 0:
@@ -491,20 +506,35 @@ class User(object):
         self.finishTask()
         time.sleep(1)
 
-    def get_yunbei(self):
-        self.taskTitle('领取云贝')
+    def yunbei_task_completed(self, task_id):
+        rows = self.music.yunbei_task().get('data') or []
+        return any(str(row['taskId']) == task_id and row.get('completed') for row in rows)
+
+    def get_yunbei(self, task_name=None):
+        if task_name is None:
+            self.taskTitle('领取云贝')
         resp = self.music.yunbei_task_todo()
+        if resp.get('code') != 200 or not isinstance(resp.get('data'), list):
+            self.taskInfo('待领云贝查询失败', self.errMsg(resp))
+            self.finishTask()
+            return
         count = 0
         for task in resp['data']:
+            if task_name is not None and task['taskName'] != task_name:
+                continue
             if task['userTaskId'] > 0:
-                self.music.yunbei_task_finish(
+                response = self.music.yunbei_task_finish(
                     task['userTaskId'], task['depositCode'])
-                self.taskInfo(task['taskName'], '云贝+' + str(task['taskPoint']))
+                if response.get('code') == 200:
+                    self.taskInfo(task['taskName'], '云贝+' + str(task['taskPoint']))
+                else:
+                    self.taskInfo(task['taskName'], self.errMsg(response))
                 count += 1
-        if count == 0:
+        if count == 0 and task_name is None:
             self.taskInfo('无可领取的云贝')
 
-        self.finishTask()
+        if task_name is None:
+            self.finishTask()
 
     def play(self, song_datas, sleep_time=3):
         if "upload_num" in self.user_setting['daka']:
@@ -534,6 +564,10 @@ class User(object):
                 self.finishTask()
 
     def sign(self):
+        if self.runtime == 'local':
+            self.sign_desktop()
+            return
+
         self.taskTitle('签到信息')
 
         progress = self.music.signin_progress('1207signin-1207signin')
@@ -574,6 +608,22 @@ class User(object):
                 if prize['obtained'] == True and prize['progress'] == currentProgress:
                     self.taskInfo(
                         desp, '云贝+' + str(prize['amount']) + ' 已签到'+str(currentProgress)+'天')
+        self.finishTask()
+
+    def sign_desktop(self):
+        self.taskTitle('签到信息')
+        status = self.music.yunbei_sign_points()
+        points = (status.get('data') or {}).get('shells', 0)
+        if status.get('code') == 200 and points > 0:
+            self.taskInfo('今日已签到', '云贝+' + str(points))
+        else:
+            response = self.music.daily_task(1, os_name='pc')
+            status = self.music.yunbei_sign_points()
+            points = (status.get('data') or {}).get('shells', 0)
+            if status.get('code') == 200 and points > 0:
+                self.taskInfo('签到确认到账', '云贝+' + str(points))
+            else:
+                self.taskInfo('签到未确认到账', self.errMsg(response))
         self.finishTask()
 
     def get_missions(self):
@@ -654,7 +704,7 @@ class User(object):
                 elif mission['status'] == 10:
                     self.taskInfo(mission['description'], '进行中' + '(' + str(
                         mission['progressRate']) + '/' + str(mission['targetCount']) + ')')
-                elif mission['status'] == 20:
+                elif mission['status'] == 20 and self.user_setting.get('musician_claim_rewards', True):
                     description = mission['description']
                     userMissionId = mission['userMissionId']
                     period = mission['period']
@@ -746,6 +796,10 @@ class User(object):
         else:
             self.taskInfo('无可执行的任务')
 
+        if not self.user_setting.get('vip_claim_rewards', True):
+            self.finishTask()
+            return
+
         unGetAllScore = resp.get('data', {}).get('unGetAllScore', 0)
 
         if unGetAllScore == 0:
@@ -794,15 +848,21 @@ class User(object):
         if self.user_setting['sign']:
             self.sign()
 
-        self.yunbei_task()
-        time.sleep(3)
-        self.get_yunbei()
+        if any(task['enable'] for task in self.user_setting['yunbei_task'].values()):
+            self.yunbei_task()
+            time.sleep(3)
+        if self.user_setting.get('yunbei_claim_rewards', True):
+            self.get_yunbei()
 
-        if self.userType == 4:
+        musician_enabled = self.user_setting.get('musician_claim_rewards', True) or any(
+            task['enable'] for task in self.user_setting['musician_task'].values())
+        if self.userType == 4 and musician_enabled:
             time.sleep(3)
             self.musician_task()
 
-        if self.vipType == 11:
+        vip_enabled = self.user_setting.get('vip_claim_rewards', True) or any(
+            task['enable'] for task in self.user_setting['vip_task'].values())
+        if self.vipType == 11 and vip_enabled:
             self.vip_task()
 
         if self.user_setting['daka']['enable']:

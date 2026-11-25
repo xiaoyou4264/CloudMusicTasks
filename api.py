@@ -7,6 +7,7 @@ from http.cookiejar import Cookie, LWPCookieJar
 from encrypt import encrypted_request
 import random
 from hashlib import md5
+from urllib.parse import urlencode
 
 DEFAULT_TIMEOUT = 10
 
@@ -155,10 +156,13 @@ class NetEase(object):
         return data
 
     # 每日签到
-    def daily_task(self, type=0):
+    def daily_task(self, type=0, os_name='android'):
         path = "/weapi/point/dailyTask"
         params = dict(type=type)
-        return self.request("POST", path, params, custom_cookies={'os': 'android'})
+        return self.request("POST", path, params, custom_cookies={'os': os_name})
+
+    def yunbei_sign_points(self):
+        return self.request('POST', '/weapi/point/today/get', {})
 
     # 用户歌单
     def user_playlist(self, uid, offset=0, limit=50, includeVideo=True):
@@ -230,6 +234,46 @@ class NetEase(object):
                       for _id in ids]), ids=json.dumps(ids))
         return self.request("POST", path, params)
 
+    def daily_recommended_songs(self):
+        return self.request('POST', '/weapi/v3/discovery/recommend/songs', {})
+
+    def liked_song_ids(self, uid):
+        result = self.request('POST', '/weapi/song/like/get', {'uid': uid})
+        if result.get('code') == 200 and isinstance(result.get('ids'), list):
+            return {int(song_id) for song_id in result['ids']}
+        return None
+
+    def set_song_like(self, song_id, liked):
+        return self.request('POST', '/weapi/song/like', {
+            'trackId': str(song_id), 'like': 'true' if liked else 'false',
+            'time': '3', 'checkToken': '',
+        })
+
+    def followed_artist_ids(self):
+        artist_ids = set()
+        offset = 0
+        while True:
+            result = self.request('POST', '/weapi/artist/sublist', {
+                'limit': 100, 'offset': offset, 'total': True,
+            })
+            rows = result.get('data')
+            if result.get('code') != 200 or not isinstance(rows, list) or 'hasMore' not in result:
+                return None
+            artist_ids.update(int(row['id']) for row in rows)
+            if not result['hasMore']:
+                return artist_ids
+            if not rows:
+                return None
+            offset += len(rows)
+
+    def top_artists(self, offset=0):
+        return self.request('POST', '/weapi/artist/top', {'limit': 50, 'offset': offset})
+
+    def set_artist_follow(self, artist_id, followed):
+        if followed:
+            return self.request('POST', '/weapi/artist/sub', {'artistId': str(artist_id)})
+        return self.request('POST', '/weapi/artist/unsub', {'artistIds': [str(artist_id)]})
+
     # 关注用户
     def user_follow(self, id):
         path = "/weapi/user/follow/{}".format(id)
@@ -279,6 +323,37 @@ class NetEase(object):
     def yunbei_task_todo(self):
         path = "/weapi/usertool/task/todo/query"
         return self.request("POST", path)  # .get("data", [])
+
+    def yunbei_click_task(self, task_id, sub_action='', task_type=''):
+        return self.request('POST', '/weapi/yunbei/click/task', {
+            'taskId': task_id,
+            'subAction': sub_action,
+            'type': task_type,
+            'checkToken': '',
+        })
+
+    def yunbei_indie_songs(self, limit):
+        return self.request('POST', '/weapi/ad/power/yunbei/distribution/recommend/song', {
+            'offset': 0, 'limit': limit,
+        })
+
+    def yunbei_indie_distribution(self, amount):
+        return self.request('POST', '/weapi/ad/power/yunbei/distribution/create', {'yunbeiAmount': amount})
+
+    def yunbei_indie_listen(self, song_id, album_id):
+        return self.request('POST', '/weapi/vipmall/interest/trialsong/listen', {
+            'songId': str(song_id), 'albumId': str(album_id), 'scene': 1,
+        })
+
+    def song_share_trigger(self, song_id, channel):
+        return self.request('POST', '/weapi/music/song/share/trigger', {
+            'songId': str(song_id), 'channel': channel,
+        })
+
+    def song_share_progress(self, song_id):
+        params = {'resourceId': str(song_id), 'action': 'share', 'fansGroupId': 'null', 'resourceType': '4'}
+        path = '/weapi/fans/group/mission/forward/progress?' + urlencode(params)
+        return self.request('POST', path, {**params, 'header': '{}'})
 
     # 完成云贝任务
     def yunbei_task_finish(self, userTaskId, depositCode):

@@ -20,6 +20,17 @@
 
 > 开发不易，如果你觉得本项目对你有用，可以点个 star，也可以到底部给个[赞赏](#赞赏)
 
+### 当前 Docker 部署的功能
+
+| 状态 | 功能 |
+| --- | --- |
+| 已开启 | 每日签到、自动领取云贝、分享歌曲、浏览会员中心、探索小众歌曲、关注歌手、红心歌曲、访问商城、发布动态、发布 Mlog |
+| 已关闭 | 打卡升级、指定歌单刷播放量、云贝推歌、音乐人任务及云豆领取、VIP 成长值及共享歌单、关注作者 |
+| 账号与推送 | 单账号，使用 Server 酱推送到微信 |
+| 执行时间 | 每天北京时间 08:30，容器启动和重启时只加载计划 |
+
+云贝子任务以网易云对该账号返回的任务列表为准。已经开启的访问商城、发布动态或发布 Mlog，只有在接口返回对应任务且任务可执行时才会运行。网易云返回的发布图文笔记、设置双人关系、完善个人资料目前尚未接入。
+
 ## 注意事项
 
 - 默认会在网易云音乐中关注作者，如果不想关注，可以在配置文件里[修改](#关注作者)
@@ -187,7 +198,7 @@ cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.c
 }
 ```
 
-签到默认开启，连续签到可以获得更多云贝。
+签到默认开启，连续签到可以获得更多云贝。本地和 Docker 运行使用桌面签到接口，并通过网易云接口回查当天到账的云贝。
 
 #### 刷听歌量
 
@@ -215,7 +226,27 @@ cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.c
 ```json5
 "setting": {
     // ...
+    "yunbei_claim_rewards": true,
     "yunbei_task": {
+        "6718451": {
+            "taskName": "探索小众歌曲",
+            "module": "listen_indie",
+            "enable": false
+        },
+        "3809301": {
+            "taskName": "关注歌手",
+            "module": "follow_artist",
+            "enable": false,
+            "artistId": null,
+            "unfollowAfterTask": true
+        },
+        "3804300": {
+            "taskName": "红心歌曲",
+            "module": "like_song",
+            "enable": false,
+            "songId": null,
+            "unlikeAfterTask": true
+        },
         "162005": {
             "taskName": "发布动态",
             "module": "publishEvent",
@@ -243,8 +274,9 @@ cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.c
             "taskName": "发布Mlog",
             "module": "publishMlog",
             "enable": false,
-            // 填写歌曲ID
+            // 留空且 randomRecommendedSong 为 true 时，从推荐歌单随机选歌
             "songId": [],
+            "randomRecommendedSong": false,
             /* 动态内容，随机选取一个，其中$artist会被替换为歌手名，$song会被替换为歌曲名 */
             "text": [
                 "分享$artist的歌曲: $song",
@@ -270,17 +302,21 @@ cookie 获取方式：首先在网页登录[网易云音乐](https://music.163.c
 }
 ```
 
-`发布动态`任务要分享歌单，可获得 5 云贝，可通过将 `enable` 设为 `true` 开启，`id` 要填写需要分享的歌单 id，可不填写，随机送推荐歌单中选取。`delete` 表示动态发布之后自动删除。
+每个子任务通过 `enable` 独立开关。`yunbei_claim_rewards` 控制自动领取已完成任务的奖励。任务是否可执行和奖励数量以网易云返回为准。
 
-`访问云音乐商城`任务可获得 2 云贝。
+| 功能 | 配置与行为 |
+| --- | --- |
+| 探索小众歌曲 | 从网易云的任务推荐列表选歌，逐首等待 31 秒后上报并回查。按当天剩余进度续跑，最多 10 首。 |
+| 关注歌手 | `artistId` 可填歌手 ID。为 `null` 或指定歌手已经关注时，从热门歌手中随机选择一位未关注的歌手。`unfollowAfterTask` 默认为 `true`，任务处理后取关本次新增的关注。 |
+| 红心歌曲 | `songId` 可填歌曲 ID。为 `null` 或指定歌曲已经红心时，从每日推荐或推荐歌单里随机选择一首未红心歌曲。`unlikeAfterTask` 默认为 `true`，任务处理后取消本次新增的红心。 |
+| 分享歌曲或歌单 | 使用 `166000` 的配置，兼容网易云返回的新版任务 ID `10795676`。新版上报站外分享任务进度，没有接收人设置。 |
+| 浏览会员中心 | 使用 `656007` 的配置，兼容新版任务 ID `6758460`。新版触发后等待浏览时长，再回查完成状态。 |
+| 访问云音乐商城 | 开启后执行网易云返回的商城访问任务。 |
+| 发布动态 | `id` 可指定歌单 ID，留空时从推荐歌单中随机选择。`msg` 设置文案，`delete` 控制发布后是否尝试删除。 |
+| 发布 Mlog | 优先使用 `songId` 中的歌曲。留空时，可打开 `randomRecommendedSong` 从推荐歌单随机选歌。使用歌曲专辑封面，`text` 设置文案，`delete` 控制发布后是否尝试删除。 |
+| 云贝推歌 | 设置 `songId`、消耗的 `yunbeiNum` 和推荐理由 `reason`。 |
 
-`云贝推歌`任务使用云贝对喜欢的歌曲进行推荐，可获得 10 云贝。`songId` 填写喜欢的歌曲 id，如`[65528, 64634]`，程序将会随机挑选一首歌，`yunbeiNum` 是要使用的云贝数量，一般为 `10`，`reason` 填写推歌理由。
-
-`发布Mlog` 根据填写的歌曲 ID，自动下载歌曲对应的专辑图片，并上传。`songId` 填写歌曲 id，如`[65528, 64634]`，`text` 填写动态内容
-
-`分享歌曲/歌单`任务并不会真的分享，将 `enable` 设为 `true` 即可开启任务
-
-`浏览会员中心`将 `enable` 设为 `true` 即可开启任务
+开启自动领奖时，关注歌手和红心歌曲会在撤销本次操作前尝试领取对应奖励。将 `unfollowAfterTask` 或 `unlikeAfterTask` 设为 `false` 可保留本次新增的关注或红心。
 
 #### 音乐人任务
 
@@ -748,6 +784,28 @@ python3 updateconfig.py config.example.json config.json config.json
 每次更新完代码后一定要更新配置文件，否则可能会出错
 
 ## 四、使用`docker`部署
+
+### 从本仓库构建并运行 Docker Compose
+
+在全新检出中，把 `config.example.json` 复制为 `config.json`，填写网易云登录信息和需要的推送凭据，再按需开启任务。已有部署直接编辑本机配置。Compose 以只读方式挂载 `config.json`，该文件已排除在 Git 和镜像构建上下文之外。
+
+```bash
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100
+```
+
+在 `compose.yaml` 里修改 `SCHEDULER_HOUR` 和 `SCHEDULER_MINUTE` 可以调整北京时间下的执行时间。`SCHEDULER_RUN_ON_START` 默认为 `false`，改为 `true` 后容器每次启动时会额外执行一轮。
+
+| 操作 | 命令 |
+| --- | --- |
+| 手动执行一轮已开启任务，并发送配置中的推送 | `docker compose exec -T cloudmusictasks python index.py` |
+| 修改配置后重新创建容器 | `docker compose up -d --force-recreate` |
+| 修改代码后重建镜像并部署 | `docker compose up -d --build` |
+
+### 上游预构建镜像
+
+以下命令使用上游预构建镜像。要使用本仓库的新增任务和接口适配，请按上面的 Compose 方式从源码构建。
 
 > 1. 支持 ARM64/AMD64 docker 镜像
 > 2. 支持指定时间定时执行

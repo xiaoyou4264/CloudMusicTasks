@@ -1,11 +1,13 @@
 import os
 import random
-from apscheduler.schedulers.background import BlockingScheduler
-from index import start
+from apscheduler.schedulers.blocking import BlockingScheduler
+import index
 
 if __name__ == "__main__":
     try:
-        start()
+        index.runtime = 'local'
+        if os.environ.get('SCHEDULER_RUN_ON_START', 'true').lower() == 'true':
+            index.start()
         scheduler_hour = os.environ.get(
             "SCHEDULER_HOUR", random.randint(0, 23))
         scheduler_minute = os.environ.get(
@@ -13,7 +15,7 @@ if __name__ == "__main__":
         print("Scheduler hour: %s, minute: %s" %
               (scheduler_hour, scheduler_minute))
         scheduler = BlockingScheduler(timezone='Asia/Shanghai')
-        scheduler.add_job(start, 'cron', hour=scheduler_hour,
+        scheduler.add_job(index.start, 'cron', hour=scheduler_hour,
                           minute=scheduler_minute)
         scheduler.start()
     except Exception as e:

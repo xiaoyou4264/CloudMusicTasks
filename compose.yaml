@@ -1,0 +1,19 @@
+services:
+  cloudmusictasks:
+    image: cloudmusictasks:4fdb167-local
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      PYTHONUNBUFFERED: '1'
+      SCHEDULER_HOUR: '8'
+      SCHEDULER_MINUTE: '30'
+      SCHEDULER_RUN_ON_START: 'false'
+    volumes:
+      - type: bind
+        source: ./config.json
+        target: /root/config.json
+        read_only: true
+        bind:
+          create_host_path: false

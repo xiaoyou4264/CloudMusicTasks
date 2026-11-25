@@ -4,14 +4,32 @@ import time
 import requests
 
 
+def recommended_song_ids(music):
+    playlists = music.personalized_playlist(limit=10)
+    playlist_ids = [playlist['id'] for playlist in playlists if playlist.get('id')]
+    random.shuffle(playlist_ids)
+    for playlist_id in playlist_ids:
+        playlist = music.playlist_detail(playlist_id).get('playlist') or {}
+        song_ids = [song['id'] for song in playlist.get('tracks') or [] if song.get('id')]
+        if song_ids:
+            return song_ids
+    return []
+
+
 def start(user, task={}):
     music = user.music
 
-    if len(task['songId']) == 0:
+    song_ids = task['songId']
+    if not song_ids and task.get('randomRecommendedSong', False):
+        song_ids = recommended_song_ids(music)
+        if not song_ids:
+            user.taskInfo(task['taskName'], '推荐歌单中没有可用歌曲')
+            return
+    if not song_ids:
         user.taskInfo(task['taskName'], '请填写歌曲ID')
         return
 
-    songId = random.choice(task['songId'])
+    songId = random.choice(song_ids)
     song_resp = music.songs_detail([songId])
     url = ''
     if song_resp['code'] == 200 and len(song_resp['songs']) > 0:

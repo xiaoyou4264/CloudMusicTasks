@@ -119,6 +119,27 @@
         "sign": true,
         /* 云贝任务，任务列表中有如下的任务时才触发 */
         "yunbei_task": {
+            "6718451": {
+                "taskName": "探索小众歌曲",
+                "module": "listen_indie",
+                "enable": false
+            },
+            "3809301": {
+                "taskName": "关注歌手",
+                "module": "follow_artist",
+                "enable": false,
+                /* null 时随机选择未关注歌手 */
+                "artistId": null,
+                "unfollowAfterTask": true
+            },
+            "3804300": {
+                "taskName": "红心歌曲",
+                "module": "like_song",
+                "enable": false,
+                /* null 时随机选择未红心歌曲 */
+                "songId": null,
+                "unlikeAfterTask": true
+            },
             /* 分享歌单 */
             "162005": {
                 "taskName": "发布动态",

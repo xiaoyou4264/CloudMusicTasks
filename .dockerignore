@@ -4,5 +4,10 @@ public/
 serverless/
 Dockerfile
 .gitignore
+.git/
+config.json
+Myconfig.json
+.env
+.user_data/
 ql_update.py
 README.md
